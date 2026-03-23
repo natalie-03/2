@@ -73,7 +73,8 @@
     const input = document.getElementById('user-input');
     const messagesDiv = document.getElementById('messages');
 
-    // 已更新為你的本地 n8n Webhook 測試網址
+    // 重要：當你上傳到 GitHub，這裡必須改成你的「正式對外網址」
+    // 例如：'https://xxxx-xxxx-xxxx.ngrok-free.app/webhook/eng-ai'
     const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook-test/f7b9872f-3f5e-4a16-909a-f2c7c12cfb99';
 
     form.onsubmit = async (e) => {
@@ -89,19 +90,37 @@
         try {
             const response = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    // 增加這個 header 有助於繞過某些 Webhook 限制
+                    'Accept': 'application/json' 
+                },
                 body: JSON.stringify({ chatInput: text })
             });
+
+            if (!response.ok) throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
+
             const data = await response.json();
-            
             document.getElementById(loadingId).remove();
             
-            // 嘗試解析 n8n 回傳的不同格式
-            const aiReply = data.output || data.text || data[0]?.output || '我現在無法回答這個問題，請稍後再試。';
-            addMessage(aiReply, 'bot');
+            // 兼容多種 n8n 回傳格式
+            let aiReply = '';
+            if (Array.isArray(data)) {
+                aiReply = data[0]?.output || data[0]?.text;
+            } else {
+                aiReply = data.output || data.text || data.data;
+            }
+
+            addMessage(aiReply || '分析完成，但沒收到具體內容。', 'bot');
             
         } catch (error) {
-            document.getElementById(loadingId).innerText = '連線失敗：請確認你的 n8n 是否正在運行，並點擊了「Listen for test event」。';
+            console.error('Error:', error);
+            const errorMsg = document.getElementById(loadingId);
+            if (window.location.protocol === 'https:' && N8N_WEBHOOK_URL.startsWith('http:')) {
+                errorMsg.innerText = '錯誤：HTTPS 網頁不能連到 HTTP 的 n8n。請使用 ngrok 提供 HTTPS 網址。';
+            } else {
+                errorMsg.innerText = '連線失敗：請確認 n8n 已開啟並點擊了「Listen for test event」。';
+            }
         }
     };
 
