@@ -45,21 +45,12 @@
 <div id="main-dashboard">
     <div id="data-panel">
         <div id="logo-header">ENG-CLASS AI</div>
-        <div class="stat-card">
-            <div style="color:var(--gold); font-size: 12px;">DATABASE STATUS</div>
-            <div style="font-size: 20px; margin-top:5px;">1,642 PTT Articles Indexed</div>
-        </div>
-        
-        <div style="color: var(--neon-green); font-size: 14px; margin-top:10px;">熱門討論主題 (Trending):</div>
-        <div class="alert-item"># 多益準備心得 (TOEIC)</div>
-        <div class="alert-item"># 線上英文家教推薦</div>
-        <div class="alert-item"># 常用商用單字整理</div>
     </div>
 
     <div id="chat-container">
         <div id="chat-header">● AI Learning Assistant - Connected</div>
         <div id="messages">
-            <div class="message bot">你好！我是你的 PTT 英文版助手。我已經學習了數千篇版上的教學與心得，你可以問我：「怎麼準備多益？」或「版友推薦哪家家教？」</div>
+            <div class="message bot">你好！我是你的英文版助手。我已經學習了數千篇版上的教學與心得，你可以問我：「怎麼準備多益？」或「版友推薦哪家家教？」</div>
         </div>
         <form id="input-area">
             <input type="text" id="user-input" placeholder="問問關於英文學習的事..." autocomplete="off">
@@ -75,7 +66,15 @@
 
     // 重要：當你上傳到 GitHub，這裡必須改成你的「正式對外網址」
     // 例如：'https://xxxx-xxxx-xxxx.ngrok-free.app/webhook/eng-ai'
-    const N8N_WEBHOOK_URL = 'http://localhost:5678/webhook-test/toweb';
+    const N8N_WEBHOOK_URL = ' https://coalier-unpeppered-nerissa.ngrok-free.dev'
+
+    // 會話記錄（用來在每次請求裡帶上上下文，實現續對話）
+    const conversation = [];
+
+    // 初始化系統歡迎訊息並存入會話
+    const initialText = '你好！我是你的 PTT 英文版助手。我已經學習了數千篇版上的教學與心得，你可以問我：「怎麼準備多益？」或「版友推薦哪家家教？」';
+    addMessage(initialText, 'bot');
+    conversation.push({ role: 'bot', content: initialText });
 
     form.onsubmit = async (e) => {
         e.preventDefault();
@@ -83,6 +82,7 @@
         if (!text) return;
 
         addMessage(text, 'user');
+        conversation.push({ role: 'user', content: text });
         input.value = '';
 
         const loadingId = addMessage('正在查閱 PTT 知識庫', 'bot loading');
@@ -90,49 +90,56 @@
         try {
             const response = await fetch(N8N_WEBHOOK_URL, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
-                    // 增加這個 header 有助於繞過某些 Webhook 限制
-                    'Accept': 'application/json' 
+                    'Accept': 'application/json'
                 },
-                body: JSON.stringify({ chatInput: text })
+                body: JSON.stringify({ chatInput: text, conversation })
             });
 
             if (!response.ok) throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
 
             const data = await response.json();
-            document.getElementById(loadingId).remove();
-            
-            // 兼容多種 n8n 回傳格式
-            let aiReply = '';
-            if (Array.isArray(data)) {
-                aiReply = data[0]?.output || data[0]?.text;
-            } else {
-                aiReply = data.output || data.text || data.data;
-            }
+            const loadingElem = document.getElementById(loadingId);
+            if (loadingElem) loadingElem.remove();
 
-            addMessage(aiReply || '分析完成，但沒收到具體內容。', 'bot');
-            
+            const aiReply = getAIReplyFromResponse(data) || '分析完成，但沒收到具體內容。';
+            addMessage(aiReply, 'bot');
+            conversation.push({ role: 'bot', content: aiReply });
+
         } catch (error) {
             console.error('Error:', error);
             const errorMsg = document.getElementById(loadingId);
-            if (window.location.protocol === 'https:' && N8N_WEBHOOK_URL.startsWith('http:')) {
-                errorMsg.innerText = '錯誤：HTTPS 網頁不能連到 HTTP 的 n8n。請使用 ngrok 提供 HTTPS 網址。';
-            } else {
-                errorMsg.innerText = '連線失敗：請確認 n8n 已開啟並點擊了「Listen for test event」。';
+            if (errorMsg) {
+                if (window.location.protocol === 'https:' && N8N_WEBHOOK_URL.startsWith('http:')) {
+                    errorMsg.innerText = '錯誤：HTTPS 網頁不能連到 HTTP 的 n8n。請使用 ngrok 提供 HTTPS 網址。';
+                } else {
+                    errorMsg.innerText = '連線失敗：請確認 n8n 已開啟並點擊了「Listen for test event」。';
+                }
             }
         }
     };
 
     function addMessage(text, className) {
         const div = document.createElement('div');
-        const id = 'msg-' + Date.now();
+        const id = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
         div.id = id;
         div.className = 'message ' + className;
         div.innerText = text;
         messagesDiv.appendChild(div);
         messagesDiv.scrollTop = messagesDiv.scrollHeight;
         return id;
+    }
+
+    function getAIReplyFromResponse(data) {
+        // 兼容多種 n8n / webhook 回傳格式
+        if (!data) return null;
+        if (typeof data === 'string') return data;
+        if (Array.isArray(data)) {
+            const first = data[0];
+            return first?.output || first?.text || (typeof first === 'string' ? first : null);
+        }
+        return data.output || data.text || data.data || (data.result && data.result.text) || null;
     }
 </script>
 </body>
