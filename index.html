@@ -1,165 +1,312 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學術論文 AI 分析助手</title>
+    <title>學術論文分析 | 穩定增強版</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         :root {
             --bg: #0a0e0a;
-            --panel: rgba(20,28,20,0.95);
+            --panel: rgba(15, 22, 15, 0.98);
             --green: #00ff9d;
-            --border: 1px solid rgba(0,255,157,0.3);
-            --user: #2d5a48;
-            --bot: #1e241e;
+            --border: 1px solid rgba(0, 255, 157, 0.4);
         }
+
         body {
-            font-family: system-ui, -apple-system, sans-serif;
+            font-family: 'Inter', '標楷體', sans-serif;
             background: var(--bg);
-            background-image: radial-gradient(#1e3a2a 0.8px, transparent 0.8px);
+            background-image: radial-gradient(#1e3a2a 1px, transparent 1px);
             background-size: 30px 30px;
-            display: flex; align-items: center; justify-content: center;
-            height: 100vh; overflow: hidden; color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
         }
+
         .dashboard {
-            width: 95%; max-width: 1300px; height: 85vh;
-            display: grid; grid-template-columns: 1fr 1.5fr; gap: 15px;
-            background: var(--panel); backdrop-filter: blur(10px);
-            border-radius: 20px; border: var(--border); overflow: hidden;
+            width: 98vw;
+            height: 95vh;
+            display: grid;
+            grid-template-columns: 1fr 1.3fr;
+            gap: 15px;
+            padding: 10px;
         }
-        /* 左側面板 */
-        .paper-panel { padding: 20px; border-right: var(--border); display: flex; flex-direction: column; gap: 10px; }
-        .paper-panel h2 { color: var(--green); font-size: 20px; font-family: "標楷體", serif; }
-        .upload-row { display: flex; gap: 10px; align-items: center; }
-        .btn-lite {
-            background: rgba(0,255,157,0.1); border: 1px solid var(--green);
-            color: var(--green); padding: 5px 15px; border-radius: 20px;
-            cursor: pointer; font-size: 13px;
+
+        .panel {
+            background: var(--panel);
+            border-radius: 20px;
+            border: var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+            /* 確保面板高度固定 */
         }
-        textarea {
-            flex: 1; background: #050805; border: var(--border);
-            color: #afffdf; padding: 12px; border-radius: 12px;
-            resize: none; font-size: 13px; outline: none;
+
+        .header {
+            height: 50px;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(0, 255, 157, 0.1);
+            border-bottom: var(--border);
+            color: var(--green);
+            flex-shrink: 0;
         }
-        /* 右側對話 */
-        .chat { display: flex; flex-direction: column; background: rgba(0,0,0,0.2); }
-        .msg-container { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { max-width: 85%; padding: 10px 14px; border-radius: 15px; font-size: 14px; line-height: 1.5; }
-        .user { align-self: flex-end; background: var(--user); color: white; }
-        .bot { align-self: flex-start; background: var(--bot); color: var(--green); border: 1px solid var(--green); }
-        
-        .input-bar { padding: 15px; display: flex; gap: 10px; background: #000; border-top: var(--border); }
-        .input-bar input { flex: 1; background: #111; border: 1px solid var(--green); color: white; padding: 10px 15px; border-radius: 25px; outline: none; }
-        .send-btn { background: var(--green); border: none; padding: 0 20px; border-radius: 25px; font-weight: bold; cursor: pointer; }
-        
-        .loading::after { content: '...'; animation: dots 1s infinite; }
-        @keyframes dots { 0% {content:'.'} 33% {content:'..'} 66% {content:'...'} }
+
+        /* 核心捲軸區域：強制鎖定高度以產生捲軸 */
+        .content-area {
+            flex: 1;
+            overflow-y: scroll !important;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 亮綠色霓虹進度條 */
+        .content-area::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .content-area::-webkit-scrollbar-track {
+            background: #050a05;
+        }
+
+        .content-area::-webkit-scrollbar-thumb {
+            background: var(--green);
+            border-radius: 10px;
+            box-shadow: 0 0 12px var(--green);
+        }
+
+        .footer {
+            padding: 15px;
+            background: #0d140d;
+            border-top: var(--border);
+            flex-shrink: 0;
+        }
+
+        #paperText {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            color: #ccf7e6;
+            resize: none;
+            outline: none;
+            font-size: 15px;
+        }
+
+        /* 訊息樣式：白色文字 */
+        .msg {
+            max-width: 92%;
+            padding: 12px 18px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+            word-wrap: break-word;
+            color: #ffffff;
+            font-size: 16px;
+        }
+
+        .user {
+            align-self: flex-end;
+            background: #2d5a48;
+            margin-left: auto;
+            border-bottom-right-radius: 2px;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background: #151515;
+            border: 1px solid var(--green);
+            border-bottom-left-radius: 2px;
+        }
+
+        .input-box {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: #000;
+            border: 1px solid #3a5a3a;
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        button {
+            background: #2d5a27;
+            color: white;
+            border: none;
+            padding: 0 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: var(--green);
+            color: black;
+        }
+
+        .upload-ui {
+            border: 1px dashed var(--green);
+            color: var(--green);
+            padding: 12px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            display: block;
+        }
+
+        .loading-text {
+            color: var(--green);
+            font-style: italic;
+            margin-bottom: 10px;
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';</script>
 </head>
+
 <body>
 
-<div class="dashboard">
-    <div class="paper-panel">
-        <h2>論文分析區域</h2>
-        <div class="upload-row">
-            <button class="btn-lite" onclick="document.getElementById('fileIn').click()">📂 上傳檔案</button>
-            <span id="fName" style="font-size:12px; color:#888">未選擇檔案</span>
+    <div class="dashboard">
+        <div class="panel">
+            <div class="header"><strong>📚 論文知識庫</strong><button
+                    onclick="document.getElementById('paperText').value=''">清空</button></div>
+            <div class="content-area">
+                <textarea id="paperText" placeholder="PDF 內容會在這裡顯示..."></textarea>
+            </div>
+            <div class="footer">
+                <label class="upload-ui">📎 上傳 PDF / TXT<input type="file" id="fileIn" multiple
+                        style="display:none"></label>
+                <div id="fileStatus" style="font-size:11px; color:#8fcca0; text-align:center; margin-top:5px;">等待檔案...
+                </div>
+            </div>
         </div>
-        <textarea id="paperText" placeholder="在此貼上論文全文或摘要..."></textarea>
-        <input type="file" id="fileIn" accept=".pdf,.txt" style="display:none">
+
+        <div class="panel">
+            <div class="header"><strong>🟢 AI 助手</strong><button id="resetChat">重置</button></div>
+            <div id="msgBox" class="content-area">
+            </div>
+            <div class="footer">
+                <form id="chatForm" class="input-box">
+                    <input type="text" id="userInput" placeholder="輸入問題..." autocomplete="off">
+                    <button type="submit">詢問</button>
+                </form>
+            </div>
+        </div>
     </div>
 
-    <div class="chat">
-        <div style="padding:10px 20px; border-bottom:var(--border); color:var(--green); font-size:12px;">● 系統已連線</div>
-        <div id="msgBox" class="msg-container"></div>
-        <form id="chatForm" class="input-bar">
-            <input type="text" id="userInput" placeholder="輸入問題..." autocomplete="off">
-            <button type="submit" class="send-btn">發送</button>
-        </form>
-    </div>
-</div>
+    <script>
+        const WEBHOOK = 'https://coalier-unpeppered-nerissa.ngrok-free.dev/webhook/toweb'; // <--- 填入你的 n8n 網址
+        const msgBox = document.getElementById('msgBox');
+        const paperTextarea = document.getElementById('paperText');
+        let chatHistory = [];
 
-<script>
-    const WEBHOOK = 'https://coalier-unpeppered-nerissa.ngrok-free.dev/webhook-test/toweb';
-    const msgBox = document.getElementById('msgBox');
-    const paperBox = document.getElementById('paperText');
-    const fileIn = document.getElementById('fileIn');
-    let history = [];
+        // 1. PDF 處理
+        document.getElementById('fileIn').addEventListener('change', async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+            document.getElementById('fileStatus').innerText = "⏳ 處理中...";
+            for (const file of files) {
+                let text = "";
+                if (file.type === "application/pdf") {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        text += content.items.map(s => s.str).join(" ") + "\n";
+                    }
+                } else { text = await file.text(); }
+                paperTextarea.value += `\n[檔案: ${file.name}]\n${text}\n`;
+            }
+            document.getElementById('fileStatus').innerText = `✅ 已載入 ${files.length} 個檔案`;
+        });
 
-    // 添加訊息
-    function addMsg(text, type) {
-        const div = document.createElement('div');
-        div.className = `msg ${type}`;
-        div.innerText = text;
-        msgBox.appendChild(div);
-        msgBox.scrollTop = msgBox.scrollHeight;
-        return div;
-    }
-
-    // 檔案處理
-    fileIn.onchange = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        document.getElementById('fName').innerText = file.name;
-        
-        if (file.type === 'application/pdf') {
-            const reader = new FileReader();
-            reader.onload = async function() {
-                const pdf = await pdfjsLib.getDocument({data: new Uint8Array(this.result)}).promise;
-                let fullText = "";
-                for(let i=1; i<=pdf.numPages; i++){
-                    const page = await pdf.getPage(i);
-                    const content = await page.getTextContent();
-                    fullText += content.items.map(s => s.str).join(" ") + "\n";
-                }
-                paperBox.value = fullText;
-                addMsg(`✅ 已讀取 PDF：${file.name}`, 'bot');
-            };
-            reader.readAsArrayBuffer(file);
-        } else {
-            const text = await file.text();
-            paperBox.value = text;
-            addMsg(`✅ 已讀取文字檔：${file.name}`, 'bot');
+        // 2. 添加訊息
+        function addMessage(text, sender, isHtml = false) {
+            const div = document.createElement('div');
+            div.className = `msg ${sender}`;
+            div.innerHTML = isHtml ? marked.parse(text) : text;
+            msgBox.appendChild(div);
+            // 延遲滾動確保圖片或內容加載完畢
+            setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 50);
         }
-    };
 
-    // 發送邏輯
-    document.getElementById('chatForm').onsubmit = async (e) => {
-        e.preventDefault();
-        const q = document.getElementById('userInput').value.trim();
-        const p = paperBox.value.trim();
-        if (!q || !p) return alert("請確保已輸入論文內容與問題");
+        // 3. 詢問功能 (強化穩定性)
+        // --- 核心連線邏輯修改 (請找到並替換對應的 fetch 部分) ---
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const q = document.getElementById('userInput').value.trim();
+            if (!q) return;
 
-        addMsg(q, 'user');
-        document.getElementById('userInput').value = '';
-        const loader = addMsg('正在分析中', 'bot');
-        loader.classList.add('loading');
+            addMessage(q, 'user');
+            document.getElementById('userInput').value = '';
 
-        try {
-            const res = await fetch(WEBHOOK, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
-                body: JSON.stringify({ 
-                    chatInput: q, 
-                    paperContext: p, 
-                    history: history,
-                    systemPrompt: "你是一位學術專家，請根據提供的論文內容以繁體中文專業回答。"
-                })
-            });
-            const data = await res.json();
-            loader.innerText = data.output || data.text || "解析失敗";
-            loader.classList.remove('loading');
-            
-            history.push({ role: 'user', content: q }, { role: 'bot', content: loader.innerText });
-            if (history.length > 20) history.shift();
-        } catch (err) {
-            loader.innerText = "連線失敗，請檢查 n8n 狀態";
-        }
-    };
+            const loading = document.createElement('div');
+            loading.className = 'loading-text';
+            loading.innerText = '📖 正在發送輕量封包...';
+            msgBox.appendChild(loading);
+            msgBox.scrollTop = msgBox.scrollHeight;
 
-    addMsg('✨ 您好！請貼上或上傳論文，我將協助您進行學術分析。', 'bot');
-</script>
+            try {
+                // 【策略修改】：如果已經開始對話，我們只傳送最近的對話內容
+                // 這樣就不會每次都塞幾萬字的論文導致 ngrok 崩潰
+                const isFirstQuestion = chatHistory.length === 0;
+
+                // 歷史紀錄只取最近 6 條，保持封包輕巧
+                const optimizedHistory = chatHistory.slice(-6);
+
+                const response = await fetch(WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+                    body: JSON.stringify({
+                        chatInput: q,
+                        // 只有第一次詢問或對話太短時才傳送論文全文，之後靠 n8n 的記憶
+                        paperContext: isFirstQuestion ? paperTextarea.value.substring(0, 50000) : "已在先前對話提供",
+                        history: optimizedHistory
+                    })
+                });
+
+                if (!response.ok) throw new Error(`連線失敗: ${response.status}`);
+
+                const data = await response.json();
+                loading.remove();
+
+                const reply = data.output || data.message || "收到回應。";
+                addMessage(reply, 'bot', true);
+
+                chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+
+            } catch (err) {
+                loading.innerHTML = `❌ <strong>連線失敗</strong><br><small>建議：請重新啟動你的 n8n 或 ngrok。若問題持續，可能是 ngrok 的流量限制。</small>`;
+            }
+        });
+        document.getElementById('resetChat').onclick = () => {
+            msgBox.innerHTML = '';
+            chatHistory = [];
+            addMessage("對話已重置。", "bot");
+        };
+
+        window.onload = () => addMessage("✨ 您好！請上傳論文，我們開始吧。此版本已強化連線穩定性與白色文字顯示。", "bot");
+    </script>
 </body>
+
 </html>
