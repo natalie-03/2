@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學術論文分析 | 禪意熱帶版 (極速模式)</title>
+    <title>學術論文分析 | 禪意熱帶版 (無記憶極速模式)</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -56,6 +56,34 @@
             color: var(--green);
             font-weight: bold;
             letter-spacing: 1px;
+        }
+
+        .chunk-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .chunk-btn {
+            background: none;
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 2px 8px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .chunk-btn:hover:not(:disabled) {
+            background: var(--green);
+            color: black;
+        }
+        
+        .chunk-btn:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
         }
 
         .content-area {
@@ -143,24 +171,31 @@
 
     <div class="dashboard">
         <div class="panel">
-            <div class="header"><strong>📚 論文全文內容</strong><button style="background:none; border:1px solid var(--green); color:var(--green); padding:2px 10px; border-radius:5px; cursor:pointer;" onclick="document.getElementById('paperText').value=''">清空</button></div>
+            <div class="header">
+                <strong>📚 論文全文 (分段模式)</strong>
+                <div class="chunk-controls">
+                    <button class="chunk-btn" id="btnPrev" disabled>◀ 上一段</button>
+                    <span id="chunkIndicator">0 / 0</span>
+                    <button class="chunk-btn" id="btnNext" disabled>下一段 ▶</button>
+                </div>
+            </div>
             <div class="content-area">
-                <textarea id="paperText" placeholder="PDF 內容載入中..."></textarea>
+                <textarea id="paperText" placeholder="PDF 內容載入中..." readonly></textarea>
             </div>
             <div class="footer">
                 <label style="display:block; border:1px dashed var(--green); color:var(--green); padding:10px; text-align:center; border-radius:10px; cursor:pointer;">
-                    📎 上傳論文 (自動優化字數)
+                    📎 上傳論文 (自動分段)
                     <input type="file" id="fileIn" multiple style="display:none">
                 </label>
             </div>
         </div>
 
         <div class="panel">
-            <div class="header"><strong>🟢 論文 AI 分析引擎 | 極速模式</strong><button id="resetChat" style="background:none; border:none; color:#888; cursor:pointer;">[重置對話]</button></div>
+            <div class="header"><strong>🟢 AI 即時分析 (無記憶模式)</strong><button id="resetChat" style="background:none; border:none; color:#888; cursor:pointer;">[清空畫面]</button></div>
             <div id="msgBox" class="content-area" style="display:flex; flex-direction:column;"></div>
             <div class="footer">
                 <form id="chatForm" class="input-box">
-                    <input type="text" id="userInput" placeholder="針對論文重點提問..." autocomplete="off">
+                    <input type="text" id="userInput" placeholder="針對「當前片段」提問..." autocomplete="off">
                     <button type="submit" class="send-btn" id="submitBtn">傳送 ➤</button>
                 </form>
             </div>
@@ -172,15 +207,44 @@
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         const WEBHOOK = 'https://coalier-unpeppered-nerissa.ngrok-free.dev/webhook/toweb'; 
+        
+        const CHUNK_SIZE = 4000; 
+        let documentChunks = [];
+        let currentChunkIndex = 0;
+
         const msgBox = document.getElementById('msgBox');
         const paperTextarea = document.getElementById('paperText');
         const submitBtn = document.getElementById('submitBtn');
-        let chatHistory = [];
+        const btnPrev = document.getElementById('btnPrev');
+        const btnNext = document.getElementById('btnNext');
+        const chunkIndicator = document.getElementById('chunkIndicator');
+
+        function updateChunkView() {
+            if (documentChunks.length === 0) return;
+            paperTextarea.value = documentChunks[currentChunkIndex];
+            chunkIndicator.innerText = `${currentChunkIndex + 1} / ${documentChunks.length}`;
+            btnPrev.disabled = (currentChunkIndex === 0);
+            btnNext.disabled = (currentChunkIndex === documentChunks.length - 1);
+        }
+
+        btnPrev.addEventListener('click', () => {
+            if (currentChunkIndex > 0) {
+                currentChunkIndex--;
+                updateChunkView();
+            }
+        });
+
+        btnNext.addEventListener('click', () => {
+            if (currentChunkIndex < documentChunks.length - 1) {
+                currentChunkIndex++;
+                updateChunkView();
+            }
+        });
 
         document.getElementById('fileIn').addEventListener('change', async (e) => {
             const files = e.target.files;
             if (!files.length) return;
-            paperTextarea.value = "⏳ 正在解析 PDF...";
+            paperTextarea.value = "⏳ 正在解析並切割...";
             let fullText = "";
             for (const file of files) {
                 if (file.type === "application/pdf") {
@@ -193,8 +257,14 @@
                     }
                 } else { fullText += await file.text(); }
             }
-            paperTextarea.value = fullText;
-            addMessage("✅ 論文已讀入！已自動優化為「極速分析模式」。", "bot");
+            
+            documentChunks = [];
+            for (let i = 0; i < fullText.length; i += CHUNK_SIZE) {
+                documentChunks.push(fullText.slice(i, i + CHUNK_SIZE));
+            }
+            currentChunkIndex = 0;
+            updateChunkView();
+            addMessage(`✅ 已切割為 **${documentChunks.length}** 段。AI 目前處於「無記憶狀態」，每次提問僅參考當前顯示片段。`, "bot", true);
         });
 
         function addMessage(text, sender, isHtml = false) {
@@ -216,48 +286,42 @@
 
             const loading = document.createElement('div');
             loading.className = 'loading-text';
-            loading.innerText = '📡 AI 正在快速掃描重點...';
+            loading.innerText = '📡 單次分析中 (無歷史負擔)...';
             msgBox.appendChild(loading);
 
             try {
-                // 【精華擷取邏輯】：前 6000 + 後 6000
-                const fullText = paperTextarea.value;
-                let optimizedText = fullText;
-                if (fullText.length > 12000) {
-                    optimizedText = fullText.slice(0, 6000) + "\n\n[...中間細節省略...]\n\n" + fullText.slice(-6000);
-                    console.log("已觸發字數優化，傳送長度:", optimizedText.length);
-                }
+                const activeChunkText = documentChunks.length > 0 ? documentChunks[currentChunkIndex] : "";
 
                 const response = await fetch(WEBHOOK, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
                     body: JSON.stringify({
                         chatInput: q,
-                        paperContext: optimizedText,
-                        history: chatHistory.slice(-4)
+                        paperContext: activeChunkText,
+                        history: [] // <--- 關鍵：始終傳送空陣列，不給 AI 記憶
                     })
                 });
 
                 const data = await response.json();
                 loading.remove();
                 submitBtn.disabled = false;
-                const reply = data.output || data.message || "收到，但我現在無法處理。";
+                const reply = data.output || data.message || "收到。";
                 addMessage(reply, 'bot', true);
-                chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+
+                // 注意：這裡完全移除了 chatHistory.push，達成「上傳一次忘一次」
 
             } catch (err) {
-                loading.innerHTML = `❌ <strong>連線超時</strong><br><small>可能是 ngrok 連線不穩或 n8n 處理時間過長。</small>`;
+                loading.innerHTML = `❌ <strong>請求失敗</strong>`;
                 submitBtn.disabled = false;
             }
         });
 
         document.getElementById('resetChat').onclick = () => {
             msgBox.innerHTML = '';
-            chatHistory = [];
-            addMessage("✨ 對話已重置。", "bot");
+            addMessage("✨ 畫面已清空，AI 始終保持零記憶狀態。", "bot");
         };
 
-        window.onload = () => addMessage("👋 歡迎！目前已開啟 **12,000 字極速模式**。", "bot");
+        window.onload = () => addMessage("👋 歡迎！已啟動 ，每次提問都是獨立的。", "bot");
     </script>
 </body>
 </html>
