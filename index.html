@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學術論文分析 | 禪意熱帶版</title>
+    <title>學術論文分析 | 不限字數增強版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -30,7 +30,7 @@
             width: 98vw;
             height: 95vh;
             display: grid;
-            grid-template-columns: 1fr 1.5fr; /* 右邊 AI 區寬一點 */
+            grid-template-columns: 1fr 1.5fr;
             gap: 20px;
             padding: 10px;
         }
@@ -58,7 +58,6 @@
             letter-spacing: 1px;
         }
 
-        /* 核心捲軸區域：你的霓虹進度條 */
         .content-area {
             flex: 1;
             overflow-y: auto;
@@ -66,9 +65,7 @@
             scroll-behavior: smooth;
         }
 
-        /* 霓虹捲軸樣式 */
         .content-area::-webkit-scrollbar { width: 6px; }
-        .content-area::-webkit-scrollbar-track { background: transparent; }
         .content-area::-webkit-scrollbar-thumb {
             background: var(--green);
             border-radius: 10px;
@@ -87,7 +84,6 @@
             line-height: 1.7;
         }
 
-        /* 訊息氣泡 */
         .msg {
             max-width: 85%;
             padding: 14px 20px;
@@ -102,7 +98,6 @@
         .user { align-self: flex-end; background: #1e3d2f; border: 1px solid rgba(0, 255, 157, 0.2); margin-left: auto; border-bottom-right-radius: 4px; }
         .bot { align-self: flex-start; background: #111; border: 1px solid var(--green); border-bottom-left-radius: 4px; box-shadow: 0 0 10px rgba(0,255,157,0.1); }
 
-        /* 固定在底部的輸入框 */
         .footer {
             padding: 20px;
             background: rgba(13, 20, 13, 0.9);
@@ -141,33 +136,34 @@
         }
         button.send-btn:hover { box-shadow: 0 0 20px var(--green); transform: scale(1.02); }
 
-        .loading-text { color: var(--green); font-style: italic; font-size: 13px; margin-bottom: 10px; text-shadow: 0 0 5px var(--green); }
+        .loading-status { color: var(--green); font-style: italic; font-size: 13px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+        .spinner { width: 14px; height: 14px; border: 2px solid var(--green); border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
     <div class="dashboard">
         <div class="panel">
-            <div class="header"><strong>📚 論文內容 (Read-Only)</strong><button style="background:none; border:1px solid var(--green); color:var(--green); padding:2px 10px; border-radius:5px; cursor:pointer;" onclick="document.getElementById('paperText').value=''">清空</button></div>
+            <div class="header"><strong>📚 論文內容 (Full Context)</strong><button style="background:none; border:1px solid var(--green); color:var(--green); padding:2px 10px; border-radius:5px; cursor:pointer;" onclick="document.getElementById('paperText').value=''">清空</button></div>
             <div class="content-area">
                 <textarea id="paperText" placeholder="PDF 內容載入中..."></textarea>
             </div>
             <div class="footer">
                 <label style="display:block; border:1px dashed var(--green); color:var(--green); padding:10px; text-align:center; border-radius:10px; cursor:pointer;">
-                    📎 點擊上傳論文 (PDF/TXT)
+                    📎 點擊上傳論文 (不限字數模式)
                     <input type="file" id="fileIn" multiple style="display:none">
                 </label>
             </div>
         </div>
 
         <div class="panel">
-            <div class="header"><strong>🟢 論文 AI 分析引擎 | 多輪記憶</strong><button id="resetChat" style="background:none; border:none; color:#888; cursor:pointer;">[重置對話]</button></div>
-            <div id="msgBox" class="content-area" style="display:flex; flex-direction:column;">
-                </div>
+            <div class="header"><strong>🟢 論文 AI 分析引擎 | 異步處理模式</strong><button id="resetChat" style="background:none; border:none; color:#888; cursor:pointer;">[重置對話]</button></div>
+            <div id="msgBox" class="content-area" style="display:flex; flex-direction:column;"></div>
             <div class="footer">
                 <form id="chatForm" class="input-box">
-                    <input type="text" id="userInput" placeholder="針對論文提問..." autocomplete="off">
-                    <button type="submit" class="send-btn">傳送 ➤</button>
+                    <input type="text" id="userInput" placeholder="針對全篇論文提問..." autocomplete="off">
+                    <button type="submit" class="send-btn" id="submitBtn">傳送 ➤</button>
                 </form>
             </div>
         </div>
@@ -180,13 +176,13 @@
         const WEBHOOK = 'https://coalier-unpeppered-nerissa.ngrok-free.dev/webhook/toweb'; 
         const msgBox = document.getElementById('msgBox');
         const paperTextarea = document.getElementById('paperText');
+        const submitBtn = document.getElementById('submitBtn');
         let chatHistory = [];
 
-        // 1. PDF 讀取邏輯 (不變)
         document.getElementById('fileIn').addEventListener('change', async (e) => {
             const files = e.target.files;
             if (!files.length) return;
-            paperTextarea.value = "⏳ 正在解析 PDF，請稍候...";
+            paperTextarea.value = "⏳ 正在深度解析 PDF...";
             let fullText = "";
             for (const file of files) {
                 if (file.type === "application/pdf") {
@@ -200,7 +196,7 @@
                 } else { fullText += await file.text(); }
             }
             paperTextarea.value = fullText;
-            addMessage("✅ 論文已成功讀入！你可以開始提問了。", "bot");
+            addMessage("✅ 論文已完整載入！現在即使是長篇內容也不會超時了。", "bot");
         });
 
         function addMessage(text, sender, isHtml = false) {
@@ -211,7 +207,7 @@
             setTimeout(() => { msgBox.scrollTop = msgBox.scrollHeight; }, 100);
         }
 
-        // 2. 穩定提問邏輯 (縮減傳送量防止 ngrok 斷線)
+        // 核心邏輯：輪詢檢查狀態
         document.getElementById('chatForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const q = document.getElementById('userInput').value.trim();
@@ -219,46 +215,86 @@
 
             addMessage(q, 'user');
             document.getElementById('userInput').value = '';
+            submitBtn.disabled = true;
 
-            const loading = document.createElement('div');
-            loading.className = 'loading-text';
-            loading.innerText = '📡 正在分析長文本 (這可能需要 30-60 秒)...';
-            msgBox.appendChild(loading);
+            const loadingId = "L_" + Date.now();
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = loadingId;
+            loadingDiv.className = 'loading-status';
+            loadingDiv.innerHTML = `<div class="spinner"></div><span>📡 正在發送完整文本 (此連線不會超時)...</span>`;
+            msgBox.appendChild(loadingDiv);
             msgBox.scrollTop = msgBox.scrollHeight;
 
+            const jobId = "JOB_" + Date.now(); // 產生本地 Job ID
+
             try {
-                // 【核心優化】：為了避免 ngrok 斷線，我們把 paperContext 限制在 15,000 字以內
-                // 如果你的論文超長，建議只取前 15000 字，這對 AI 來說通常已經足夠分析核心創新點
+                // 第一步：發送任務 (n8n 應該設定為 Respond Immediately)
                 const response = await fetch(WEBHOOK, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
                     body: JSON.stringify({
+                        action: "start",
+                        jobId: jobId,
                         chatInput: q,
-                        paperContext: paperTextarea.value, // 限制字數防止超時
-                        history: chatHistory.slice(-4) // 只取最近 4 次對話，保持輕量
+                        paperContext: paperTextarea.value, // 發送全部，不限字數
+                        history: chatHistory.slice(-4)
                     })
                 });
 
-                if (!response.ok) throw new Error("傳送失敗");
+                if (!response.ok) throw new Error("任務啟動失敗");
 
-                const data = await response.json();
-                loading.remove();
-                const reply = data.output || data.message || "抱歉，我暫時無法回答這個問題。";
-                addMessage(reply, 'bot', true);
-                chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+                // 第二步：開始輪詢
+                let attempts = 0;
+                const startTime = Date.now();
+
+                const poll = setInterval(async () => {
+                    attempts++;
+                    const elapsed = Math.round((Date.now() - startTime) / 1000);
+                    loadingDiv.innerHTML = `<div class="spinner"></div><span>⏳ AI 正在深度閱讀中... (${elapsed}s)</span>`;
+
+                    try {
+                        const checkResponse = await fetch(WEBHOOK, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+                            body: JSON.stringify({ action: "check", jobId: jobId })
+                        });
+
+                        const data = await checkResponse.json();
+
+                        if (data.status === "completed") {
+                            clearInterval(poll);
+                            loadingDiv.remove();
+                            submitBtn.disabled = false;
+                            const reply = data.output || data.message || "處理完成。";
+                            addMessage(reply, 'bot', true);
+                            chatHistory.push({ role: 'user', content: q }, { role: 'assistant', content: reply });
+                        } else if (data.status === "error") {
+                            throw new Error(data.message || "AI 處理出錯");
+                        }
+                    } catch (pollErr) {
+                        console.log("正在等待回傳...");
+                    }
+
+                    if (attempts > 60) { // 設定總寬限時間為 5 分鐘 (60次 * 5秒)
+                         clearInterval(poll);
+                         loadingDiv.innerHTML = `❌ <strong>處理時間過長</strong><br>請確認 n8n 工作流是否正常運作。`;
+                         submitBtn.disabled = false;
+                    }
+                }, 5000); // 每 5 秒詢問一次
 
             } catch (err) {
-                loading.innerHTML = `❌ <strong>連線超時</strong><br><small>原因：論文內容過大導致 ngrok 處理過久。請嘗試清空部分內容，或重新啟動 n8n 工作流。</small>`;
+                loadingDiv.innerHTML = `❌ <strong>連線失敗</strong><br><small>${err.message}</small>`;
+                submitBtn.disabled = false;
             }
         });
 
         document.getElementById('resetChat').onclick = () => {
             msgBox.innerHTML = '';
             chatHistory = [];
-            addMessage("✨ 對話已清除。您可以重新提問。", "bot");
+            addMessage("✨ 對話與記憶已清除。", "bot");
         };
 
-        window.onload = () => addMessage("👋 歡迎使用論文 AI 分析系統！請先在左側上傳檔案。", "bot");
+        window.onload = () => addMessage("👋 歡迎！目前已開啟 **長論文支持模式**，您可以上傳完整檔案。 ", "bot");
     </script>
 </body>
 </html>
