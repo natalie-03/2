@@ -234,7 +234,7 @@
                     headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
                     body: JSON.stringify({
                         chatInput: q,
-                        paperContext: paperTextarea.value.substring(0, 18000), // 限制字數防止超時
+                        paperContext: paperTextarea.value, // 限制字數防止超時
                         history: chatHistory.slice(-4) // 只取最近 4 次對話，保持輕量
                     })
                 });
