@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學術論文分析</title>
+    <title>論文分析</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -264,7 +264,7 @@
             }
             currentChunkIndex = 0;
             updateChunkView();
-            addMessage(`✅ 已切割為 **${documentChunks.length}** 段。AI 目前處於「無記憶狀態」，每次提問僅參考當前顯示片段。`, "bot", true);
+            addMessage(`✅ 已切割為 **${documentChunks.length}** 段`, "bot", true);
         });
 
         function addMessage(text, sender, isHtml = false) {
@@ -286,7 +286,7 @@
 
             const loading = document.createElement('div');
             loading.className = 'loading-text';
-            loading.innerText = '📡 單次分析中 (無歷史負擔)...';
+            loading.innerText = '📡 單次分析中 ...';
             msgBox.appendChild(loading);
 
             try {
@@ -318,7 +318,7 @@
 
         document.getElementById('resetChat').onclick = () => {
             msgBox.innerHTML = '';
-            addMessage("✨ 畫面已清空，AI 始終保持零記憶狀態。", "bot");
+            addMessage("✨ 畫面已清空", "bot");
         };
 
         window.onload = () => addMessage("👋 歡迎！已啟動 ，每次提問都是獨立的。", "bot");
