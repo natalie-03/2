@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus Stock - 智能股票看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0b0f19',
+                        cardbg: '#111827',
+                        cardborder: '#1f2937',
+                        neonup: '#10b981',
+                        neondown: '#ef4444',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Chart.js for interactive charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0b0f19; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+        .glow-card {
+            background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(31, 41, 55, 0.4) 100%);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col justify-between">
+
+    <header class="w-full max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center mb-6 pb-4 border-b border-gray-800 gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-chart-line text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider bg-gradient-to-r from-white via-gray-200 to-cyan-400 bg-clip-text text-transparent">NEXUS TERMINAL</h1>
+                <p class="text-xs text-gray-400">全球即時金融市場情報看板</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-2 bg-cardbg px-3 py-1.5 rounded-full border border-cardborder text-xs">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-gray-300">系統連線正常 (120ms)</span>
+            </div>
+            <div id="current-time" class="text-xs font-mono text-gray-400"></div>
+        </div>
+    </header>
+
+    <main class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 flex-grow">
+        
+        <!-- Left & Center: Stock List Table & Cards -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            <!-- Top Summary Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="glow-card p-4 rounded-2xl">
+                    <p class="text-xs text-gray-400 mb-1">台股加權指數</p>
+                    <div class="text-lg font-bold">23,145.20</div>
+                    <div class="text-xs text-emerald-400 font-medium mt-1"><i class="fa-solid fa-caret-up"></i> +142.50 (+0.62%)</div>
+                </div>
+                <div class="glow-card p-4 rounded-2xl">
+                    <p class="text-xs text-gray-400 mb-1">那斯達克指數</p>
+                    <div class="text-lg font-bold">18,320.80</div>
+                    <div class="text-xs text-rose-400 font-medium mt-1"><i class="fa-solid fa-caret-down"></i> -48.20 (-0.26%)</div>
+                </div>
+                <div class="glow-card p-4 rounded-2xl">
+                    <p class="text-xs text-gray-400 mb-1">美元/新台幣</p>
+                    <div class="text-lg font-bold">32.145</div>
+                    <div class="text-xs text-emerald-400 font-medium mt-1"><i class="fa-solid fa-caret-up"></i> +0.08 (+0.25%)</div>
+                </div>
+                <div class="glow-card p-4 rounded-2xl">
+                    <p class="text-xs text-gray-400 mb-1">總成交金額</p>
+                    <div class="text-lg font-bold">4,128 億</div>
+                    <div class="text-xs text-gray-400 font-medium mt-1">台股主板</div>
+                </div>
+            </div>
+
+            <!-- Stock Watchlist Table -->
+            <div class="glow-card rounded-2xl p-5 overflow-hidden flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-sm font-semibold tracking-wide text-gray-200 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-cyan-400"></i> 熱門標的監控
+                    </h2>
+                    <span class="text-xs text-gray-400">點擊查看詳細走勢</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="border-b border-gray-800 text-xs text-gray-400">
+                                <th class="py-3 px-3 font-medium">代號 / 名稱</th>
+                                <th class="py-3 px-3 font-medium text-right">即時價格</th>
+                                <th class="py-3 px-3 font-medium text-right">漲跌幅</th>
+                                <th class="py-3 px-3 font-medium text-right">成交量</th>
+                                <th class="py-3 px-3 font-medium text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-table-body" class="divide-y divide-gray-800/50 text-sm">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Interactive Chart Panel -->
+        <div class="glow-card rounded-2xl p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 id="chart-title" class="text-base font-bold text-white">台積電 (2330)</h2>
+                        <p id="chart-subtitle" class="text-xs text-gray-400">台灣積體電路製造股份有限公司</p>
+                    </div>
+                    <div class="flex bg-gray-900 rounded-lg p-1 border border-gray-800 text-xs">
+                        <button onclick="changeTimeframe('1D')" class="px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-400 font-medium transition tf-btn">日</button>
+                        <button onclick="changeTimeframe('5D')" class="px-2.5 py-1 rounded text-gray-400 hover:text-white transition tf-btn">5日</button>
+                        <button onclick="changeTimeframe('1M')" class="px-2.5 py-1 rounded text-gray-400 hover:text-white transition tf-btn">月</button>
+                    </div>
+                </div>
+                <div class="my-2">
+                    <div class="text-2xl font-bold" id="selected-price">NT$ 1,080.0</div>
+                    <div class="text-xs text-emerald-400 font-medium" id="selected-change">+25.0 (+2.37%)</div>
+                </div>
+                <!-- Chart Canvas Container -->
+                <div class="relative w-full h-64 mt-4">
+                    <canvas id="stockChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Quick Market Sentiment Widget -->
+            <div class="mt-6 pt-4 border-t border-gray-800">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-gray-400">市場多空情緒指數</span>
+                    <span class="text-xs font-semibold text-emerald-400">78% 看多 (極度貪婪)</span>
+                </div>
+                <div class="w-full bg-gray-800 h-2 rounded-full overflow-hidden flex">
+                    <div class="bg-emerald-500 h-full w-[78%]"></div>
+                    <div class="bg-rose-500 h-full w-[22%]"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="w-full max-w-7xl mx-auto text-center text-xs text-gray-500 py-2 border-t border-gray-900">
+        Nexus Financial Dashboard System &copy; 2026. Designed for 3D Interactive Metaverse Spaces.
+    </footer>
+
+    <script>
+        // Stock Data Source
+        const stocks = [
+            { symbol: '2330', name: '台積電', market: 'TW', price: 1080.0, change: 25.0, changePercent: 2.37, volume: '48.2萬', isUp: true, history: [1055, 1060, 1058, 1065, 1072, 1070, 1080] },
+            { symbol: '2454', name: '聯發科', market: 'TW', price: 1290.0, change: -15.0, changePercent: -1.15, volume: '12.5萬', isUp: false, history: [1310, 1305, 1300, 1295, 1290, 1292, 1290] },
+            { symbol: '2317', name: '鴻海', market: 'TW', price: 212.5, change: 4.5, changePercent: 2.16, volume: '95.4萬', isUp: true, history: [205, 207, 208, 209, 210, 211, 212.5] },
+            { symbol: 'AAPL', name: '蘋果', market: 'US', price: 234.2, change: 1.8, changePercent: 0.77, volume: '3200萬', isUp: true, history: [230, 231, 232, 231.5, 233, 233.8, 234.2] },
+            { symbol: 'TSLA', name: '特斯拉', market: 'US', price: 248.6, change: -6.4, changePercent: -2.51, volume: '4500萬', isUp: false, history: [258, 256, 255, 252, 250, 249, 248.6] }
+        ];
+
+        let currentSelectedIndex = 0;
+        let stockChart = null;
+
+        // Render Table Rows
+        function renderTable() {
+            const tbody = document.getElementById('stock-table-body');
+            tbody.innerHTML = '';
+            stocks.forEach((stock, index) => {
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-gray-800/40 transition cursor-pointer ${index === currentSelectedIndex ? 'bg-cyan-500/10 border-l-2 border-cyan-400' : ''}`;
+                tr.onclick = () => selectStock(index);
+
+                const sign = stock.isUp ? '+' : '';
+                const colorClass = stock.isUp ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-500/10 border border-rose-500/20';
+                const icon = stock.isUp ? 'fa-arrow-up' : 'fa-arrow-down';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-3">
+                        <div class="font-bold text-white">${stock.name}</div>
+                        <div class="text-xs text-gray-400 font-mono">${stock.symbol} · ${stock.market}</div>
+                    </td>
+                    <td class="py-3 px-3 text-right font-mono font-semibold">${stock.price.toFixed(1)}</td>
+                    <td class="py-3 px-3 text-right">
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${colorClass}">
+                            <i class="fa-solid ${icon} text-[10px]"></i> ${sign}${stock.changePercent.toFixed(2)}%
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 text-right text-gray-300 font-mono text-xs">${stock.volume}</td>
+                    <td class="py-3 px-3 text-center">
+                        <button class="px-2.5 py-1 bg-gray-800 hover:bg-cyan-600 hover:text-white rounded-lg text-xs transition text-gray-300">
+                            查看
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Initialize Chart.js
+        function initChart(stock) {
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            
+            // Gradient fill for chart background
+            const gradient = ctx.createLinearGradient(0, 0, 0, 250);
+            if (stock.isUp) {
+                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
+                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.0)');
+            } else {
+                gradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
+                gradient.addColorStop(1, 'rgba(239, 68, 68, 0.0)');
+            }
+
+            if (stockChart) {
+                stockChart.destroy();
+            }
+
+            stockChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '收盤'],
+                    datasets: [{
+                        label: stock.name,
+                        data: stock.history,
+                        borderColor: stock.isUp ? '#10b981' : '#ef4444',
+                        borderWidth: 2,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 3,
+                        pointBackgroundColor: stock.isUp ? '#10b981' : '#ef4444'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1f2937',
+                            titleColor: '#f3f4f6',
+                            bodyColor: '#d1d5db',
+                            borderColor: '#374151',
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#9ca3af', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#9ca3af', font: { size: 10 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Select Stock function
+        function selectStock(index) {
+            currentSelectedIndex = index;
+            const stock = stocks[index];
+            
+            document.getElementById('chart-title').innerText = `${stock.name} (${stock.symbol})`;
+            document.getElementById('selected-price').innerText = `NT$ ${stock.price.toFixed(1)}`;
+            
+            const sign = stock.isUp ? '+' : '';
+            const changeEl = document.getElementById('selected-change');
+            changeEl.className = `text-xs font-medium ${stock.isUp ? 'text-emerald-400' : 'text-rose-400'}`;
+            changeEl.innerHTML = `${sign}${stock.change.toFixed(1)} (${sign}${stock.changePercent.toFixed(2)}%)`;
+
+            renderTable();
+            initChart(stock);
+        }
+
+        // Timeframe selector interaction
+        function changeTimeframe(tf) {
+            document.querySelectorAll('.tf-btn').forEach(btn => {
+                btn.className = 'px-2.5 py-1 rounded text-gray-400 hover:text-white transition tf-btn';
+            });
+            event.target.className = 'px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-400 font-medium transition tf-btn';
+            
+            // Generate slight variation for demo effect
+            const stock = stocks[currentSelectedIndex];
+            let multiplier = tf === '5D' ? 1.02 : (tf === '1M' ? 1.05 : 1.0);
+            let dummyData = stock.history.map(val => Number((val * (0.98 + Math.random() * 0.04)).toFixed(1)));
+            stockChart.data.datasets[0].data = dummyData;
+            stockChart.update();
+        }
+
+        // Live Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-time').innerText = now.toLocaleTimeString();
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // Initial Load
+        window.onload = function() {
+            renderTable();
+            initChart(stocks[0]);
+        };
+    </script>
+</body>
+</html>
